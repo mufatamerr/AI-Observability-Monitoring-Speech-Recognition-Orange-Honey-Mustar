@@ -1,11 +1,11 @@
-# DevOps-Hackathon-Toronto-Team-3
+# AI Observability & Monitoring Speech Recognition | Orange Honey Mustar
 Canada DevOps Community of Practice Hackathon Toronto - Team 4 
 
-Project Name - TBD
+Project Name - AI Observability & Monitoring Speech Recognition | Orange Honey Mustar
 Team Mentor -
 
 Participant Names - 
 
-     Team Lead - 
-     Team Members - Ahmad Ayoub, Hassan Nabil, khanhadi, rajperz, tamermu
+     Team Lead - Hassan Nabil, Zain Rajpar
+     Team Members - Hadi Khan, Mustafa Tamer, Ahmad Ayoub
 
