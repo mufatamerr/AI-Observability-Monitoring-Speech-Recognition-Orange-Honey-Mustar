@@ -1,6 +1,3 @@
-fastapi
-uvicorn[standard]
-pydantic
-prometheus-client
-python-multipart
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
 

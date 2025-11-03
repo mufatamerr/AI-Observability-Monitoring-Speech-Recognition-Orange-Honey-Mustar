@@ -1,34 +1,41 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
 
+const API_URL = 'http://localhost:8000'
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const checkHealth = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`${API_URL}/health`)
+      const data = await response.json()
+      setMessage(`Backend Status: ${data.status}`)
+    } catch (error) {
+      setMessage('Error: Backend not reachable')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div className="app">
+      <header>
+        <h1>🎤 SparkVoice</h1>
+        <p>Simple Voice Recognition App</p>
+      </header>
+
+      <main>
+        <div className="card">
+          <button onClick={checkHealth} disabled={loading}>
+            {loading ? 'Checking...' : 'Check Backend Health'}
+          </button>
+          {message && <p className="message">{message}</p>}
+        </div>
+      </main>
+    </div>
   )
 }
 
