@@ -1,0 +1,177 @@
+{
+  "dashboard": {
+    "title": "SparkVoice - AI Observability Dashboard",
+    "tags": ["sparkvoice", "speech-recognition", "observability"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Speech Recognition Requests",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(speech_requests_total[5m]))",
+            "refId": "A",
+            "legendFormat": "Requests/sec"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "reqps",
+            "decimals": 2
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Request Status Breakdown",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "sum by (status) (speech_requests_total)",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Processing Time (Average)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "rate(speech_processing_duration_seconds_sum[5m]) / rate(speech_processing_duration_seconds_count[5m])",
+            "refId": "A",
+            "legendFormat": "Avg Processing Time",
+            "interval": "10s"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Seconds"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Total Requests Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "sum(increase(speech_requests_total[1m]))",
+            "refId": "A",
+            "legendFormat": "Total Requests",
+            "interval": "1m"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Requests"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Success vs Error Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(speech_requests_total{status=\"success\"}[5m]))",
+            "refId": "A",
+            "legendFormat": "Success Rate"
+          },
+          {
+            "expr": "sum(rate(speech_requests_total{status=\"error\"}[5m]))",
+            "refId": "B",
+            "legendFormat": "Error Rate"
+          }
+        ],
+        "yaxes": [
+          {"format": "reqps", "label": "Requests/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Audio File Size Distribution",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(audio_size_bytes_bucket[5m])) by (le))",
+            "refId": "A",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(audio_size_bytes_bucket[5m])) by (le))",
+            "refId": "B",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(audio_size_bytes_bucket[5m])) by (le))",
+            "refId": "C",
+            "legendFormat": "p99"
+          }
+        ],
+        "yaxes": [
+          {"format": "bytes", "label": "Size"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Error Rate Percentage",
+        "type": "gauge",
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 16},
+        "targets": [
+          {
+            "expr": "(sum(rate(speech_requests_total{status=\"error\"}[5m])) / sum(rate(speech_requests_total[5m]))) * 100",
+            "refId": "A",
+            "legendFormat": "Error Rate %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 100,
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5, "color": "yellow"},
+                {"value": 10, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Current Request Count",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "sum(speech_requests_total)",
+            "refId": "A",
+            "legendFormat": "Total Requests"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "value"},
+            "unit": "short"
+          }
+        }
+      }
+    ]
+  }
+}
+
