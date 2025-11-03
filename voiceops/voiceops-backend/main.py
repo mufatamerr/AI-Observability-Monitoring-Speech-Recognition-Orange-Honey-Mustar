@@ -1,11 +1,11 @@
 """
-SparkVoice Backend - Simple FastAPI application
+reVoiced Backend - Simple FastAPI application
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Initialize FastAPI app
-app = FastAPI(title="SparkVoice API")
+app = FastAPI(title="reVoiced API")
 
 # CORS middleware
 app.add_middleware(
@@ -19,7 +19,7 @@ app.add_middleware(
 @app.get("/")
 async def root():
     """Root endpoint"""
-    return {"message": "SparkVoice API is running!"}
+    return {"message": "reVoiced API is running!"}
 
 @app.get("/health")
 async def health():
