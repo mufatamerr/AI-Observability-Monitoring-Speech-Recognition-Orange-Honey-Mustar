@@ -1,5 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import "../App.css";
+import ASCIIText from "../components/ASCIIText";
+import MagicBento from "../components/MagicBento";
 
 function Welcome({ onNavigateToApiUsage }) {
   const [isRecording, setIsRecording] = useState(false);
@@ -8,47 +10,98 @@ function Welcome({ onNavigateToApiUsage }) {
   const [transcription, setTranscription] = useState(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [uploadedFileUrl, setUploadedFileUrl] = useState(null);
+  const [uploadError, setUploadError] = useState(null);
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
   const audioPlayerRef = useRef(null);
+  const uploadedAudioPlayerRef = useRef(null);
+  const fileInputRef = useRef(null);
   const streamRef = useRef(null);
 
+  // Manage recording lifecycle
   useEffect(() => {
-    if (isRecording && !mediaRecorderRef.current) {
-      startRecording();
-    } else if (
-      !isRecording &&
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== "inactive"
-    ) {
+    if (isRecording && !mediaRecorderRef.current) startRecording();
+    else if (!isRecording && mediaRecorderRef.current?.state !== "inactive")
       stopRecording();
-    }
   }, [isRecording]);
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      if (
-        mediaRecorderRef.current &&
-        mediaRecorderRef.current.state !== "inactive"
-      ) {
+      clearInterval(timerRef.current);
+      if (mediaRecorderRef.current?.state !== "inactive") {
         mediaRecorderRef.current.stop();
       }
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      if (uploadedFileUrl) URL.revokeObjectURL(uploadedFileUrl);
     };
-  }, []);
+  }, [audioUrl, uploadedFileUrl]);
 
-  useEffect(() => {
-    return () => {
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-    };
-  }, [audioUrl]);
+  // --- File Upload Validation ---
+  const validateAudioFile = (file) => {
+    const allowedExtensions = [".flac", ".mp3", ".wav"];
+    const allowedMimeTypes = [
+      "audio/flac",
+      "audio/x-flac",
+      "audio/mpeg",
+      "audio/mp3",
+      "audio/wav",
+      "audio/wave",
+      "audio/x-wav",
+    ];
 
+    const fileExtension = file.name
+      .toLowerCase()
+      .slice(file.name.lastIndexOf("."));
+    const hasValidExtension = allowedExtensions.includes(fileExtension);
+    const hasValidMimeType = allowedMimeTypes.includes(file.type);
+
+    if (!hasValidExtension && !hasValidMimeType) {
+      return {
+        valid: false,
+        error: `Invalid file type. Only ${allowedExtensions.join(
+          ", "
+        )} supported.`,
+      };
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      return { valid: false, error: "File exceeds 50MB limit." };
+    }
+
+    return { valid: true };
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadError(null);
+    const validation = validateAudioFile(file);
+    if (!validation.valid) {
+      setUploadError(validation.error);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+      setAudioUrl(null);
+      setAudioBlob(null);
+      setTranscription(null);
+    }
+
+    const fileUrl = URL.createObjectURL(file);
+    setUploadedFile(file);
+    setUploadedFileUrl(fileUrl);
+    setAudioBlob(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // --- Recording Handlers ---
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -57,15 +110,12 @@ function Welcome({ onNavigateToApiUsage }) {
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: "audio/webm",
       });
-
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
       setRecordingTime(0);
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = () => {
@@ -76,374 +126,239 @@ function Welcome({ onNavigateToApiUsage }) {
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
 
-        // Stop all tracks to release microphone
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((track) => track.stop());
-          streamRef.current = null;
-        }
-
-        // Reset media recorder ref for next recording
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
         mediaRecorderRef.current = null;
-
-        // Convert to WAV format for Whisper compatibility
         convertToWAV(audioBlob);
       };
 
       mediaRecorder.start();
-
-      // Start timer
-      timerRef.current = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
+      timerRef.current = setInterval(
+        () => setRecordingTime((t) => t + 1),
+        1000
+      );
     } catch (error) {
-      console.error("Error accessing microphone:", error);
-      alert("Error accessing microphone. Please check your permissions.");
+      console.error("Mic access error:", error);
+      alert("Error accessing microphone. Please check permissions.");
       setIsRecording(false);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
     }
   };
 
   const stopRecording = () => {
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== "inactive"
-    ) {
+    if (mediaRecorderRef.current?.state !== "inactive")
       mediaRecorderRef.current.stop();
-    }
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+    clearInterval(timerRef.current);
   };
 
+  // --- Convert recorded audio to WAV ---
   const convertToWAV = async (blob) => {
     try {
-      // For browser, we'll create a WAV file from the recorded audio
       const audioContext = new (window.AudioContext ||
         window.webkitAudioContext)();
       const arrayBuffer = await blob.arrayBuffer();
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-      // Create WAV file
-      const wavBlob = audioBufferToWAV(audioBuffer);
-
-      // Also create downloadable versions
-      const wavUrl = URL.createObjectURL(
-        new Blob([wavBlob], { type: "audio/wav" })
-      );
-
-      // Store for potential Whisper processing
-      setAudioBlob(new Blob([wavBlob], { type: "audio/wav" }));
-    } catch (error) {
-      console.error("Error converting to WAV:", error);
+      const wavBlob = new Blob([audioBufferToWAV(audioBuffer)], {
+        type: "audio/wav",
+      });
+      setAudioBlob(wavBlob);
+    } catch (err) {
+      console.error("Error converting to WAV:", err);
     }
   };
 
   const audioBufferToWAV = (buffer) => {
     const length = buffer.length;
     const sampleRate = buffer.sampleRate;
-    const numberOfChannels = buffer.numberOfChannels;
-    const arrayBuffer = new ArrayBuffer(44 + length * numberOfChannels * 2);
-    const view = new DataView(arrayBuffer);
+    const numChannels = buffer.numberOfChannels;
+    const bufferSize = 44 + length * numChannels * 2;
+    const view = new DataView(new ArrayBuffer(bufferSize));
 
-    // WAV header
-    const writeString = (offset, string) => {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-      }
-    };
+    const writeString = (offset, str) =>
+      [...str].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
 
     writeString(0, "RIFF");
-    view.setUint32(4, 36 + length * numberOfChannels * 2, true);
+    view.setUint32(4, 36 + length * numChannels * 2, true);
     writeString(8, "WAVE");
     writeString(12, "fmt ");
     view.setUint32(16, 16, true);
     view.setUint16(20, 1, true);
-    view.setUint16(22, numberOfChannels, true);
+    view.setUint16(22, numChannels, true);
     view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * numberOfChannels * 2, true);
-    view.setUint16(32, numberOfChannels * 2, true);
+    view.setUint32(28, sampleRate * numChannels * 2, true);
+    view.setUint16(32, numChannels * 2, true);
     view.setUint16(34, 16, true);
     writeString(36, "data");
-    view.setUint32(40, length * numberOfChannels * 2, true);
+    view.setUint32(40, length * numChannels * 2, true);
 
-    // Convert audio data
     let offset = 44;
     for (let i = 0; i < length; i++) {
-      for (let channel = 0; channel < numberOfChannels; channel++) {
-        const sample = Math.max(
-          -1,
-          Math.min(1, buffer.getChannelData(channel)[i])
-        );
-        view.setInt16(
-          offset,
-          sample < 0 ? sample * 0x8000 : sample * 0x7fff,
-          true
-        );
+      for (let c = 0; c < numChannels; c++) {
+        const s = Math.max(-1, Math.min(1, buffer.getChannelData(c)[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
         offset += 2;
       }
     }
-
-    return arrayBuffer;
+    return view.buffer;
   };
 
-  const handleTranscribe = async () => {
+  // --- Transcription Simulation ---
+  const handleTranscribe = () => {
     if (!audioBlob) return;
-
     setIsTranscribing(true);
-    // Note: Whisper CLI would be: whisper audio.flac audio.mp3 audio.wav --model turbo
-    // Since we can't run Whisper in browser, this is a placeholder
-    // In production, this would send the audio to a backend API
-
-    // Simulate transcription (replace with actual API call when backend is ready)
     setTimeout(() => {
       setTranscription(
-        "Transcription will appear here once backend Whisper integration is complete. The audio file is ready for processing."
+        "Simulated transcription. Actual Whisper turbo integration requires backend API."
       );
       setIsTranscribing(false);
     }, 2000);
   };
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
+  const formatTime = (s) =>
+    `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
   const handleVoiceButtonClick = () => {
-    if (isRecording) {
-      setIsRecording(false);
-    } else {
-      // Clear previous recording
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-        setAudioUrl(null);
+    if (isRecording) setIsRecording(false);
+    else {
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      if (uploadedFileUrl) {
+        URL.revokeObjectURL(uploadedFileUrl);
+        setUploadedFile(null);
+        setUploadedFileUrl(null);
       }
       setAudioBlob(null);
       setTranscription(null);
+      setUploadError(null);
       setIsRecording(true);
     }
   };
 
-  const handlePlayAudio = () => {
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.play();
-    }
+  const handlePlayAudio = () => audioPlayerRef.current?.play();
+  const handlePlayUploadedAudio = () => uploadedAudioPlayerRef.current?.play();
+  const handleClearUploaded = () => {
+    if (uploadedFileUrl) URL.revokeObjectURL(uploadedFileUrl);
+    setUploadedFile(null);
+    setUploadedFileUrl(null);
+    setAudioBlob(null);
+    setTranscription(null);
+    setUploadError(null);
   };
 
   return (
     <div className="welcome-container">
       <div className="welcome-content">
-        <h1 className="welcome-title">SparkVoice</h1>
+        <div className="welcome-title-wrapper">
+          <ASCIIText
+            text="VoiceOps"
+            enableWaves
+            asciiFontSize={8}
+            textFontSize={240}
+            textColor="#FF6B35"
+            planeBaseHeight={12}
+          />
+        </div>
         <h2 className="welcome-subtitle">AI Operations Platform</h2>
 
         <div className="description-section">
-          <p className="description-intro">
+          <p>
             A unified AI operations platform offering centralized monitoring,
-            alerting, and accessibility management for all GenAI assets.
+            alerting, and accessibility for all GenAI assets.
           </p>
-
-          <div className="features-grid">
-            <div className="feature-card">
-              <h3>📊 Monitoring & Tracking</h3>
-              <p>
-                Track latency, token usage, and user satisfaction with real-time
-                metrics collection
-              </p>
-            </div>
-            <div className="feature-card">
-              <h3>🛡️ Safety Detection</h3>
-              <p>
-                Detect hallucinations and toxic outputs using advanced
-                classifiers
-              </p>
-            </div>
-            <div className="feature-card">
-              <h3>📈 Visualization</h3>
-              <p>
-                Visualize outputs and anomalies via integrated Grafana
-                dashboards
-              </p>
-            </div>
-            <div className="feature-card">
-              <h3>🚨 Alerting</h3>
-              <p>
-                Generate alerts for performance degradation or safety violations
-              </p>
-            </div>
-          </div>
-
-          <div className="tools-section">
-            <p className="tools-label">Powered by:</p>
-            <div className="tools-badges">
-              <span className="tool-badge">Prometheus</span>
-              <span className="tool-badge">Grafana</span>
-              <span className="tool-badge">OpenTelemetry</span>
-              <span className="tool-badge">FastAPI</span>
-              <span className="tool-badge">Langfuse</span>
-              <span className="tool-badge">Arize AI</span>
-            </div>
+          <div style={{ marginTop: "0.5rem", marginBottom: "1rem" }}>
+            <MagicBento
+              enableStars
+              enableSpotlight
+              enableBorderGlow
+              enableTilt
+              enableMagnetism
+              clickEffect
+            />
           </div>
         </div>
 
-        <div className="voice-button-container">
-          <button
-            className={`voice-button ${isRecording ? "recording" : ""}`}
-            onClick={handleVoiceButtonClick}
-            aria-label="Start voice recording"
-          >
-            <svg
-              className="voice-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
+        {/* AUDIO CONTROLS */}
+        <div className="audio-input-section">
+          <div className="voice-button-container">
+            <button
+              className={`voice-button ${isRecording ? "recording" : ""}`}
+              onClick={handleVoiceButtonClick}
+              disabled={!!uploadedFile}
             >
-              <path
-                d="M12 1C10.34 1 9 2.34 9 4V12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12V4C15 2.34 13.66 1 12 1Z"
-                fill="currentColor"
-              />
-              <path
-                d="M19 10V12C19 15.87 15.87 19 12 19C8.13 19 5 15.87 5 12V10H7V12C7 14.76 9.24 17 12 17C14.76 17 17 14.76 17 12V10H19Z"
-                fill="currentColor"
-              />
-              <path d="M11 22H13V19H11V22Z" fill="currentColor" />
-            </svg>
-            {isRecording && (
-              <div className="recording-pulse">
-                <div className="pulse-ring"></div>
-                <div className="pulse-ring"></div>
-                <div className="pulse-ring"></div>
-              </div>
+              🎙️
+            </button>
+            <p className="voice-button-label">
+              {isRecording
+                ? `Recording... ${formatTime(recordingTime)}`
+                : "Start Recording"}
+            </p>
+          </div>
+
+          <div className="upload-divider">
+            <span>OR</span>
+          </div>
+
+          <div className="upload-button-container">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".flac,.mp3,.wav,audio/*"
+              onChange={handleFileUpload}
+              style={{ display: "none" }}
+            />
+            <button
+              className="upload-button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isRecording}
+            >
+              ⬆️ Upload Audio File
+            </button>
+            {uploadError && (
+              <p className="upload-error-message">{uploadError}</p>
             )}
-          </button>
-          <p className="voice-button-label">
-            {isRecording
-              ? `Recording... ${formatTime(recordingTime)}`
-              : "Start Recording"}
-          </p>
+          </div>
         </div>
 
-        {/* Audio Player Section */}
-        {audioUrl && (
+        {/* Uploaded or Recorded Sections */}
+        {uploadedFileUrl && (
           <div className="audio-recording-section">
-            <div className="audio-card">
-              <h3 className="audio-title">📼 Your Recording</h3>
-              <div className="audio-player-container">
-                <audio
-                  ref={audioPlayerRef}
-                  src={audioUrl}
-                  controls
-                  className="audio-player"
-                />
-              </div>
-              <div className="audio-actions">
-                <button
-                  className="play-audio-button"
-                  onClick={handlePlayAudio}
-                  aria-label="Play audio"
-                >
-                  <svg
-                    className="play-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path d="M8 5V19L19 12L8 5Z" fill="currentColor" />
-                  </svg>
-                  <span>Play Recording</span>
-                </button>
-                <a
-                  href={audioUrl}
-                  download={`recording-${Date.now()}.wav`}
-                  className="download-audio-button"
-                >
-                  <svg
-                    className="download-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M12 15V3M12 15L8 11M12 15L16 11M2 17L2 19C2 19.5304 2.21071 20.0391 2.58579 20.4142C2.96086 20.7893 3.46957 21 4 21L20 21C20.5304 21 21.0391 20.7893 21.4142 20.4142C21.7893 20.0391 22 19.5304 22 19V17"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <span>Download WAV</span>
-                </a>
-              </div>
-            </div>
-
-            {/* Transcription Section */}
-            <div className="transcription-card">
-              <h3 className="transcription-title">
-                📝 Transcription (Whisper Turbo)
-              </h3>
-              {!transcription && !isTranscribing && (
-                <button
-                  className="transcribe-button"
-                  onClick={handleTranscribe}
-                  aria-label="Transcribe audio with Whisper"
-                >
-                  <svg
-                    className="transcribe-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                  <span>Transcribe with Whisper (turbo model)</span>
-                </button>
-              )}
-              {isTranscribing && (
-                <div className="transcribing-indicator">
-                  <div className="loading-spinner"></div>
-                  <p>Transcribing with Whisper turbo model...</p>
-                </div>
-              )}
-              {transcription && (
-                <div className="transcription-result">
-                  <p className="transcription-text">{transcription}</p>
-                  <p className="transcription-note">
-                    Note: Full Whisper integration requires backend API. Audio
-                    file format: WAV (ready for: whisper audio.wav --model
-                    turbo)
-                  </p>
-                </div>
-              )}
-            </div>
+            <h3>📁 Uploaded Audio: {uploadedFile.name}</h3>
+            <audio
+              ref={uploadedAudioPlayerRef}
+              src={uploadedFileUrl}
+              controls
+            />
+            <button onClick={handlePlayUploadedAudio}>▶️ Play</button>
+            <button onClick={handleClearUploaded}>❌ Clear</button>
           </div>
         )}
 
-        <button
-          className="api-usage-nav-button"
-          onClick={onNavigateToApiUsage}
-          aria-label="View API usage dashboard"
-        >
-          <span className="button-text">View API Usage</span>
-          <svg
-            className="button-arrow"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M9 18L15 12L9 6"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+        {audioUrl && !uploadedFileUrl && (
+          <div className="audio-recording-section">
+            <h3>📼 Your Recording</h3>
+            <audio ref={audioPlayerRef} src={audioUrl} controls />
+            <button onClick={handlePlayAudio}>▶️ Play</button>
+            <a href={audioUrl} download={`recording-${Date.now()}.wav`}>
+              💾 Download WAV
+            </a>
+          </div>
+        )}
+
+        {(audioBlob || uploadedFileUrl) && (
+          <div className="transcription-card">
+            <h3>📝 Transcription (Whisper Turbo)</h3>
+            {!transcription && !isTranscribing && (
+              <button onClick={handleTranscribe}>
+                Transcribe with Whisper
+              </button>
+            )}
+            {isTranscribing && <p>⏳ Transcribing...</p>}
+            {transcription && (
+              <p className="transcription-text">{transcription}</p>
+            )}
+          </div>
+        )}
+
+        <button className="api-usage-nav-button" onClick={onNavigateToApiUsage}>
+          View API Usage →
         </button>
       </div>
     </div>
