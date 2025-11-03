@@ -3,6 +3,8 @@ import "../App.css";
 import ASCIIText from "../components/ASCIIText";
 import MagicBento from "../components/MagicBento";
 import ErrorBoundary from "../components/ErrorBoundary";
+import MagicButton from "../components/MagicButton";
+import Hyperspeed from "../components/Hyperspeed";
 
 function Welcome({ onNavigateToApiUsage }) {
   const [isRecording, setIsRecording] = useState(false);
@@ -14,8 +16,10 @@ function Welcome({ onNavigateToApiUsage }) {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadedFileUrl, setUploadedFileUrl] = useState(null);
   const [uploadError, setUploadError] = useState(null);
+  const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
 
   const mediaRecorderRef = useRef(null);
+  const downloadDropdownRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
   const audioPlayerRef = useRef(null);
@@ -271,7 +275,6 @@ function Welcome({ onNavigateToApiUsage }) {
     }
   };
 
-  const handlePlayAudio = () => audioPlayerRef.current?.play();
   const handlePlayUploadedAudio = () => uploadedAudioPlayerRef.current?.play();
   const handleClearUploaded = () => {
     if (uploadedFileUrl) URL.revokeObjectURL(uploadedFileUrl);
@@ -280,6 +283,92 @@ function Welcome({ onNavigateToApiUsage }) {
     setAudioBlob(null);
     setTranscription(null);
     setUploadError(null);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (downloadDropdownRef.current && !downloadDropdownRef.current.contains(event.target)) {
+        setShowDownloadDropdown(false);
+      }
+    };
+
+    if (showDownloadDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDownloadDropdown]);
+
+  const handleDownload = async (format) => {
+    if (!audioBlob) return;
+    
+    setShowDownloadDropdown(false);
+    
+    let fileBlob = audioBlob;
+    let filename = `recording-${Date.now()}`;
+    
+    if (format === 'wav') {
+      filename += '.wav';
+      fileBlob = audioBlob;
+    } else if (format === 'mp3') {
+      filename += '.mp3';
+      // Note: The actual encoding is still WAV (since browser doesn't support MP3 encoding natively),
+      // but the file will have .mp3 extension. For true MP3 encoding, a backend service would be needed.
+      fileBlob = audioBlob;
+    }
+    
+    try {
+      const url = URL.createObjectURL(fileBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+    }
+  };
+
+  const handleDownloadUploaded = async (format) => {
+    if (!uploadedFile) return;
+    
+    setShowDownloadDropdown(false);
+    
+    let fileBlob = uploadedFile;
+    let filename = uploadedFile.name;
+    
+    // Remove existing extension
+    const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
+    
+    if (format === 'wav') {
+      if (!filename.toLowerCase().endsWith('.wav')) {
+        filename = `${nameWithoutExt}.wav`;
+      }
+    } else if (format === 'mp3') {
+      if (!filename.toLowerCase().endsWith('.mp3')) {
+        filename = `${nameWithoutExt}.mp3`;
+      }
+      // Note: The actual encoding is still the original format (since browser doesn't support MP3 encoding natively),
+      // but the file will have .mp3 extension. For true MP3 conversion, a backend service would be needed.
+    }
+    
+    try {
+      const url = URL.createObjectURL(fileBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading uploaded file:', error);
+    }
   };
 
   return (
@@ -321,13 +410,16 @@ function Welcome({ onNavigateToApiUsage }) {
         {/* AUDIO CONTROLS */}
         <div className="audio-input-section">
           <div className="voice-button-container">
-            <button
+            <MagicButton
               className={`voice-button ${isRecording ? "recording" : ""}`}
               onClick={handleVoiceButtonClick}
               disabled={!!uploadedFile}
+              particleCount={8}
+              enableTilt={false}
+              enableMagnetism={false}
             >
               🎙️
-            </button>
+            </MagicButton>
             <p className="voice-button-label">
               {isRecording
                 ? `Recording... ${formatTime(recordingTime)}`
@@ -347,13 +439,14 @@ function Welcome({ onNavigateToApiUsage }) {
               onChange={handleFileUpload}
               style={{ display: "none" }}
             />
-            <button
+            <MagicButton
               className="upload-button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isRecording}
+              particleCount={6}
             >
               ⬆️ Upload Audio File
-            </button>
+            </MagicButton>
             {uploadError && (
               <p className="upload-error-message">{uploadError}</p>
             )}
@@ -363,46 +456,170 @@ function Welcome({ onNavigateToApiUsage }) {
         {/* Uploaded or Recorded Sections */}
         {uploadedFileUrl && (
           <div className="audio-recording-section">
-            <h3>📁 Uploaded Audio: {uploadedFile.name}</h3>
-            <audio
-              ref={uploadedAudioPlayerRef}
-              src={uploadedFileUrl}
-              controls
-            />
-            <button onClick={handlePlayUploadedAudio}>▶️ Play</button>
-            <button onClick={handleClearUploaded}>❌ Clear</button>
+            <h3 className="audio-title">📁 Uploaded Audio: {uploadedFile.name}</h3>
+            <div className="audio-player-container">
+              <audio
+                ref={uploadedAudioPlayerRef}
+                src={uploadedFileUrl}
+                controls
+                className="audio-player"
+              />
+            </div>
+            <div className="audio-actions">
+              <div className="download-dropdown-container" ref={downloadDropdownRef}>
+                <MagicButton
+                  className="download-audio-button"
+                  onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
+                  particleCount={5}
+                >
+                  <span className="download-icon">⬇</span>
+                  <span>Download</span>
+                  <span className="dropdown-arrow">▼</span>
+                </MagicButton>
+                {showDownloadDropdown && (
+                  <div className="download-dropdown-menu">
+                    <MagicButton
+                      className="download-dropdown-item"
+                      onClick={() => handleDownloadUploaded('wav')}
+                      particleCount={3}
+                      enableTilt={false}
+                    >
+                      <span>WAV</span>
+                      <span className="file-format-badge">.wav</span>
+                    </MagicButton>
+                    <MagicButton
+                      className="download-dropdown-item"
+                      onClick={() => handleDownloadUploaded('mp3')}
+                      particleCount={3}
+                      enableTilt={false}
+                    >
+                      <span>MP3</span>
+                      <span className="file-format-badge">.mp3</span>
+                    </MagicButton>
+                  </div>
+                )}
+              </div>
+              <MagicButton 
+                className="clear-uploaded-button"
+                onClick={handleClearUploaded}
+                particleCount={5}
+              >
+                <span className="clear-icon">✕</span>
+                <span>Clear</span>
+              </MagicButton>
+            </div>
           </div>
         )}
 
         {audioUrl && !uploadedFileUrl && (
           <div className="audio-recording-section">
-            <h3>📼 Your Recording</h3>
-            <audio ref={audioPlayerRef} src={audioUrl} controls />
-            <button onClick={handlePlayAudio}>▶️ Play</button>
-            <a href={audioUrl} download={`recording-${Date.now()}.wav`}>
-              💾 Download WAV
-            </a>
+            <h3 className="audio-title">📼 Your Recording</h3>
+            <div className="audio-player-container">
+              <audio ref={audioPlayerRef} src={audioUrl} controls className="audio-player" />
+            </div>
+            <div className="audio-actions">
+              <div className="download-dropdown-container" ref={downloadDropdownRef}>
+                <MagicButton
+                  className="download-audio-button"
+                  onClick={() => setShowDownloadDropdown(!showDownloadDropdown)}
+                  particleCount={5}
+                >
+                  <span className="download-icon">⬇</span>
+                  <span>Download</span>
+                  <span className="dropdown-arrow">▼</span>
+                </MagicButton>
+                {showDownloadDropdown && (
+                  <div className="download-dropdown-menu">
+                    <MagicButton
+                      className="download-dropdown-item"
+                      onClick={() => handleDownload('wav')}
+                      particleCount={3}
+                      enableTilt={false}
+                    >
+                      <span>WAV</span>
+                      <span className="file-format-badge">.wav</span>
+                    </MagicButton>
+                    <MagicButton
+                      className="download-dropdown-item"
+                      onClick={() => handleDownload('mp3')}
+                      particleCount={3}
+                      enableTilt={false}
+                    >
+                      <span>MP3</span>
+                      <span className="file-format-badge">.mp3</span>
+                    </MagicButton>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
         {(audioBlob || uploadedFileUrl) && (
           <div className="transcription-card">
-            <h3>📝 Transcription (Whisper Turbo)</h3>
-            {!transcription && !isTranscribing && (
-              <button onClick={handleTranscribe}>
-                Transcribe with Whisper
-              </button>
-            )}
-            {isTranscribing && <p>⏳ Transcribing...</p>}
-            {transcription && (
-              <p className="transcription-text">{transcription}</p>
-            )}
+            <Hyperspeed
+              effectOptions={{
+                distortion: 'turbulentDistortion',
+                length: 400,
+                roadWidth: 10,
+                islandWidth: 2,
+                lanesPerRoad: 4,
+                fov: 90,
+                fovSpeedUp: 150,
+                speedUp: 2,
+                carLightsFade: 0.4,
+                totalSideLightSticks: 20,
+                lightPairsPerRoadWay: 40,
+                shoulderLinesWidthPercentage: 0.05,
+                brokenLinesWidthPercentage: 0.1,
+                brokenLinesLengthPercentage: 0.5,
+                lightStickWidth: [0.12, 0.5],
+                lightStickHeight: [1.3, 1.7],
+                movingAwaySpeed: [60, 80],
+                movingCloserSpeed: [-120, -160],
+                carLightsLength: [400 * 0.03, 400 * 0.2],
+                carLightsRadius: [0.05, 0.14],
+                carWidthPercentage: [0.3, 0.5],
+                carShiftX: [-0.8, 0.8],
+                carFloorSeparation: [0, 5],
+                colors: {
+                  roadColor: 0x1a1a1a,
+                  islandColor: 0x2d2d2d,
+                  background: 0x000000,
+                  shoulderLines: 0xFFC857,
+                  brokenLines: 0xFFC857,
+                  leftCars: [0xFF6B35, 0xF7931E, 0xFFC857],
+                  rightCars: [0xF7931E, 0xFFC857, 0xFF6B35],
+                  sticks: 0xFFC857
+                }
+              }}
+              onHover={true}
+            />
+            <div className="transcription-content">
+              {!transcription && !isTranscribing && (
+                <MagicButton 
+                  className="transcribe-button"
+                  onClick={handleTranscribe}
+                  particleCount={6}
+                >
+                  Transcribe with Whisper
+                </MagicButton>
+              )}
+              {isTranscribing && <p>⏳ Transcribing...</p>}
+              {transcription && (
+                <p className="transcription-text">{transcription}</p>
+              )}
+            </div>
           </div>
         )}
 
-        <button className="api-usage-nav-button" onClick={onNavigateToApiUsage}>
-          View API Usage →
-        </button>
+        <MagicButton 
+          className="api-usage-nav-button" 
+          onClick={onNavigateToApiUsage}
+          particleCount={8}
+        >
+          <span className="button-text">View API Usage →</span>
+        </MagicButton>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import '../App.css'
+import MagicButton from '../components/MagicButton'
 
 function ApiUsage({ onNavigateToWelcome }) {
   // Mock data for the template
@@ -52,10 +53,11 @@ function ApiUsage({ onNavigateToWelcome }) {
   return (
     <div className="api-usage-container">
       <div className="api-usage-header">
-        <button 
+        <MagicButton 
           className="back-button"
           onClick={onNavigateToWelcome}
           aria-label="Back to welcome page"
+          particleCount={5}
         >
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path 
@@ -67,7 +69,7 @@ function ApiUsage({ onNavigateToWelcome }) {
             />
           </svg>
           <span>Back</span>
-        </button>
+        </MagicButton>
         <h1 className="api-usage-title">API Usage Dashboard</h1>
         <div className="header-spacer"></div>
       </div>
@@ -117,8 +119,20 @@ function ApiUsage({ onNavigateToWelcome }) {
           <div className="section-header">
             <h2 className="section-title">API Endpoints</h2>
             <div className="section-actions">
-              <button className="filter-button">Filter</button>
-              <button className="refresh-button">Refresh</button>
+              <MagicButton 
+                className="filter-button"
+                particleCount={4}
+                enableTilt={false}
+              >
+                Filter
+              </MagicButton>
+              <MagicButton 
+                className="refresh-button"
+                particleCount={4}
+                enableTilt={false}
+              >
+                Refresh
+              </MagicButton>
             </div>
           </div>
           <div className="endpoints-table">

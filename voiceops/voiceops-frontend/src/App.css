@@ -186,6 +186,8 @@
   transition: all 0.3s ease;
   box-shadow: 0 8px 24px rgba(255, 107, 53, 0.3),
               0 0 0 0 rgba(255, 107, 53, 0.5);
+  font-size: 80px;
+  line-height: 1;
 }
 
 .voice-button:hover {
@@ -984,6 +986,10 @@
   margin-left: auto;
   margin-right: auto;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .audio-card,
@@ -993,8 +999,16 @@
   border-radius: 16px;
   padding: 2rem;
   margin-bottom: 1.5rem;
+  margin-top: 2.5rem;
   backdrop-filter: blur(10px);
   transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.transcription-content {
+  position: relative;
+  z-index: 1;
 }
 
 .audio-card:hover,
@@ -1010,6 +1024,14 @@
   font-weight: 600;
   margin-bottom: 1.5rem;
   text-align: center;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.audio-recording-section h3.audio-title {
+  margin-bottom: 1.5rem;
 }
 
 .audio-player-container {
@@ -1024,6 +1046,10 @@
   background: rgba(45, 45, 45, 0.6);
   border-radius: 4px;
   overflow: hidden;
+}
+
+.audio-recording-section .audio-player-container {
+  margin: 0 auto 1.5rem;
 }
 
 .audio-player {
@@ -1118,15 +1144,181 @@ audio::-moz-media-controls {
   transform: translateY(0);
 }
 
+.download-dropdown-container {
+  position: relative;
+  display: inline-block;
+}
+
 .download-audio-button {
-  background: linear-gradient(135deg, var(--primary-honey), var(--primary-mustard));
+  background: linear-gradient(135deg, rgba(45, 45, 45, 0.9), rgba(58, 58, 58, 0.8));
+  border: 2px solid rgba(255, 200, 87, 0.4);
+  box-shadow: 0 4px 16px rgba(255, 200, 87, 0.25),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  position: relative;
+  padding: 0.875rem 1.75rem;
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.download-audio-button:hover {
+  border-color: rgba(255, 107, 53, 0.6);
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.15), rgba(247, 147, 30, 0.15));
+  box-shadow: 0 6px 24px rgba(255, 107, 53, 0.35),
+              0 0 0 2px rgba(255, 107, 53, 0.1),
+              inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.download-audio-button:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 16px rgba(255, 200, 87, 0.25);
+}
+
+.download-audio-button .dropdown-arrow {
+  font-size: 0.7rem;
+  opacity: 0.8;
+  transition: all 0.3s ease;
+  margin-left: 0.25rem;
+  transform: translateY(0);
+}
+
+.download-audio-button:hover .dropdown-arrow {
+  opacity: 1;
+  transform: translateY(1px);
+}
+
+.download-dropdown-container:has(.download-dropdown-menu) .download-audio-button .dropdown-arrow {
+  transform: rotate(180deg);
+}
+
+.download-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, rgba(45, 45, 45, 0.95), rgba(58, 58, 58, 0.95));
+  border: 1px solid rgba(255, 200, 87, 0.3);
+  border-radius: 10px;
+  padding: 0.5rem;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.2);
+  z-index: 1000;
+  min-width: 140px;
+  animation: dropdownFadeIn 0.2s ease;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.download-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+  gap: 0.5rem;
+}
+
+.download-dropdown-item:hover {
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.1), rgba(247, 147, 30, 0.1));
+  border-color: rgba(255, 107, 53, 0.3);
+  transform: translateX(4px);
+}
+
+.download-dropdown-item:active {
+  transform: translateX(2px);
+}
+
+.download-dropdown-item .file-format-badge {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  color: var(--primary-mustard);
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
 .play-icon,
 .download-icon,
-.transcribe-icon {
-  width: 20px;
-  height: 20px;
+.transcribe-icon,
+.clear-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 1rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.play-uploaded-button,
+.clear-uploaded-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.5rem;
+  background: linear-gradient(135deg, rgba(45, 45, 45, 0.8), rgba(58, 58, 58, 0.6));
+  border: 1px solid rgba(255, 200, 87, 0.3);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(255, 200, 87, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.play-uploaded-button:hover {
+  border-color: rgba(255, 107, 53, 0.5);
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.1), rgba(247, 147, 30, 0.1));
+  box-shadow: 0 6px 20px rgba(255, 107, 53, 0.3);
+  transform: translateY(-2px);
+}
+
+.clear-uploaded-button {
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.1), rgba(248, 113, 113, 0.05));
+  border-color: rgba(248, 113, 113, 0.3);
+  box-shadow: 0 4px 12px rgba(248, 113, 113, 0.2);
+}
+
+.clear-uploaded-button:hover {
+  border-color: rgba(248, 113, 113, 0.5);
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.15), rgba(248, 113, 113, 0.1));
+  box-shadow: 0 6px 20px rgba(248, 113, 113, 0.3);
+  transform: translateY(-2px);
+}
+
+.play-uploaded-button:active,
+.clear-uploaded-button:active {
+  transform: translateY(0);
+}
+
+.clear-uploaded-button .clear-icon {
+  color: #f87171;
 }
 
 /* Transcription Styles */
