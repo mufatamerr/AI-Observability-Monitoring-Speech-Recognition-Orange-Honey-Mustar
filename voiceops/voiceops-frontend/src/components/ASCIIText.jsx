@@ -362,78 +362,124 @@ export default function ASCIIText({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const { width, height } = containerRef.current.getBoundingClientRect();
+    try {
+      const { width, height } = containerRef.current.getBoundingClientRect();
 
-    if (width === 0 || height === 0) {
-      if (typeof window !== 'undefined' && 'IntersectionObserver' in window) {
-        const observer = new IntersectionObserver(
-          ([entry]) => {
-            if (entry.isIntersecting && entry.boundingClientRect.width > 0 && entry.boundingClientRect.height > 0) {
-              const { width: w, height: h } = entry.boundingClientRect;
-              asciiRef.current = new CanvAscii(
-                { text, asciiFontSize, textFontSize, textColor, planeBaseHeight, enableWaves },
-                containerRef.current,
-                w,
-                h
-              );
-              asciiRef.current.load();
-              observer.disconnect();
+      if (width === 0 || height === 0) {
+        if (typeof window !== 'undefined' && 'IntersectionObserver' in window) {
+          const observer = new IntersectionObserver(
+            ([entry]) => {
+              try {
+                if (entry.isIntersecting && entry.boundingClientRect.width > 0 && entry.boundingClientRect.height > 0) {
+                  const { width: w, height: h } = entry.boundingClientRect;
+                  asciiRef.current = new CanvAscii(
+                    { text, asciiFontSize, textFontSize, textColor, planeBaseHeight, enableWaves },
+                    containerRef.current,
+                    w,
+                    h
+                  );
+                  asciiRef.current.load();
+                  observer.disconnect();
+                }
+              } catch (error) {
+                console.error('Error initializing ASCIIText with IntersectionObserver:', error);
+              }
+            },
+            { threshold: 0.1 }
+          );
+          observer.observe(containerRef.current);
+          return () => {
+            observer.disconnect();
+            if (asciiRef.current) {
+              try {
+                asciiRef.current.dispose();
+              } catch (error) {
+                console.error('Error disposing ASCIIText:', error);
+              }
             }
-          },
-          { threshold: 0.1 }
-        );
-        observer.observe(containerRef.current);
-        return () => {
-          observer.disconnect();
-          if (asciiRef.current) {
-            asciiRef.current.dispose();
+          };
+        } else {
+          // Fallback: if IntersectionObserver is unavailable, initialize once with a minimal size
+          try {
+            const w = containerRef.current.clientWidth || 300;
+            const h = containerRef.current.clientHeight || 150;
+            asciiRef.current = new CanvAscii(
+              { text, asciiFontSize, textFontSize, textColor, planeBaseHeight, enableWaves },
+              containerRef.current,
+              w,
+              h
+            );
+            asciiRef.current.load();
+          } catch (error) {
+            console.error('Error initializing ASCIIText (fallback):', error);
           }
-        };
-      } else {
-        // Fallback: if IntersectionObserver is unavailable, initialize once with a minimal size
-        const w = containerRef.current.clientWidth || 300;
-        const h = containerRef.current.clientHeight || 150;
-        asciiRef.current = new CanvAscii(
-          { text, asciiFontSize, textFontSize, textColor, planeBaseHeight, enableWaves },
-          containerRef.current,
-          w,
-          h
-        );
-        asciiRef.current.load();
-        return () => {
-          if (asciiRef.current) {
-            asciiRef.current.dispose();
-          }
-        };
-      }
-    }
-
-    asciiRef.current = new CanvAscii(
-      { text, asciiFontSize, textFontSize, textColor, planeBaseHeight, enableWaves },
-      containerRef.current,
-      width,
-      height
-    );
-    asciiRef.current.load();
-
-    let ro;
-    if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
-      ro = new ResizeObserver(entries => {
-        if (!entries[0] || !asciiRef.current) return;
-        const { width: w, height: h } = entries[0].contentRect;
-        if (w > 0 && h > 0) {
-          asciiRef.current.setSize(w, h);
+          return () => {
+            if (asciiRef.current) {
+              try {
+                asciiRef.current.dispose();
+              } catch (error) {
+                console.error('Error disposing ASCIIText:', error);
+              }
+            }
+          };
         }
-      });
-      ro.observe(containerRef.current);
-    }
-
-    return () => {
-      if (ro) ro.disconnect();
-      if (asciiRef.current) {
-        asciiRef.current.dispose();
       }
-    };
+
+      asciiRef.current = new CanvAscii(
+        { text, asciiFontSize, textFontSize, textColor, planeBaseHeight, enableWaves },
+        containerRef.current,
+        width,
+        height
+      );
+      asciiRef.current.load();
+
+      let ro;
+      if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
+        ro = new ResizeObserver(entries => {
+          try {
+            if (!entries[0] || !asciiRef.current) return;
+            const { width: w, height: h } = entries[0].contentRect;
+            if (w > 0 && h > 0) {
+              asciiRef.current.setSize(w, h);
+            }
+          } catch (error) {
+            console.error('Error in ResizeObserver:', error);
+          }
+        });
+        ro.observe(containerRef.current);
+      }
+
+      return () => {
+        if (ro) ro.disconnect();
+        if (asciiRef.current) {
+          try {
+            asciiRef.current.dispose();
+          } catch (error) {
+            console.error('Error disposing ASCIIText:', error);
+          }
+        }
+      };
+    } catch (error) {
+      console.error('Error in ASCIIText useEffect:', error);
+      // Render fallback text if Three.js fails
+      if (containerRef.current) {
+        containerRef.current.innerHTML = `
+          <div style="
+            width: 100%;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #FF6B35, #F7931E, #FFC857);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+          ">${text}</div>
+        `;
+      }
+    }
   }, [text, asciiFontSize, textFontSize, textColor, planeBaseHeight, enableWaves]);
 
   return (

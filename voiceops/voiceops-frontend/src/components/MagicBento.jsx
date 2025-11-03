@@ -101,159 +101,201 @@ const ParticleCard = ({
   }, [particleCount, glowColor])
 
   const clearAllParticles = useCallback(() => {
-    timeoutsRef.current.forEach(clearTimeout)
-    timeoutsRef.current = []
-    magnetismAnimationRef.current?.kill()
-    particlesRef.current.forEach(particle => {
-      gsap.to(particle, {
-        scale: 0,
-        opacity: 0,
-        duration: 0.3,
-        ease: 'back.in(1.7)',
-        onComplete: () => {
+    try {
+      timeoutsRef.current.forEach(clearTimeout)
+      timeoutsRef.current = []
+      magnetismAnimationRef.current?.kill()
+      particlesRef.current.forEach(particle => {
+        if (typeof gsap !== 'undefined') {
+          gsap.to(particle, {
+            scale: 0,
+            opacity: 0,
+            duration: 0.3,
+            ease: 'back.in(1.7)',
+            onComplete: () => {
+              particle.parentNode?.removeChild(particle)
+            }
+          })
+        } else {
           particle.parentNode?.removeChild(particle)
         }
       })
-    })
-    particlesRef.current = []
+      particlesRef.current = []
+    } catch (error) {
+      console.error('Error in clearAllParticles:', error)
+    }
   }, [])
 
   const animateParticles = useCallback(() => {
-    if (!cardRef.current || !isHoveredRef.current) return
-    if (!particlesInitialized.current) {
-      initializeParticles()
+    try {
+      if (!cardRef.current || !isHoveredRef.current) return
+      if (!particlesInitialized.current) {
+        initializeParticles()
+      }
+      if (typeof gsap === 'undefined') {
+        console.warn('GSAP is not available, particle animations disabled')
+        return
+      }
+      memoizedParticles.current.forEach((particle, index) => {
+        const timeoutId = setTimeout(() => {
+          try {
+            if (!isHoveredRef.current || !cardRef.current) return
+            const clone = particle.cloneNode(true)
+            cardRef.current.appendChild(clone)
+            particlesRef.current.push(clone)
+            gsap.fromTo(clone, { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: 'back.out(1.7)' })
+            gsap.to(clone, {
+              x: (Math.random() - 0.5) * 100,
+              y: (Math.random() - 0.5) * 100,
+              rotation: Math.random() * 360,
+              duration: 2 + Math.random() * 2,
+              ease: 'none',
+              repeat: -1,
+              yoyo: true
+            })
+            gsap.to(clone, {
+              opacity: 0.3,
+              duration: 1.5,
+              ease: 'power2.inOut',
+              repeat: -1,
+              yoyo: true
+            })
+          } catch (error) {
+            console.error('Error animating particle:', error)
+          }
+        }, index * 100)
+        timeoutsRef.current.push(timeoutId)
+      })
+    } catch (error) {
+      console.error('Error in animateParticles:', error)
     }
-    memoizedParticles.current.forEach((particle, index) => {
-      const timeoutId = setTimeout(() => {
-        if (!isHoveredRef.current || !cardRef.current) return
-        const clone = particle.cloneNode(true)
-        cardRef.current.appendChild(clone)
-        particlesRef.current.push(clone)
-        gsap.fromTo(clone, { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: 'back.out(1.7)' })
-        gsap.to(clone, {
-          x: (Math.random() - 0.5) * 100,
-          y: (Math.random() - 0.5) * 100,
-          rotation: Math.random() * 360,
-          duration: 2 + Math.random() * 2,
-          ease: 'none',
-          repeat: -1,
-          yoyo: true
-        })
-        gsap.to(clone, {
-          opacity: 0.3,
-          duration: 1.5,
-          ease: 'power2.inOut',
-          repeat: -1,
-          yoyo: true
-        })
-      }, index * 100)
-      timeoutsRef.current.push(timeoutId)
-    })
   }, [initializeParticles])
 
   useEffect(() => {
     if (disableAnimations || !cardRef.current) return
     const element = cardRef.current
     const handleMouseEnter = () => {
-      isHoveredRef.current = true
-      animateParticles()
-      if (enableTilt) {
-        gsap.to(element, {
-          rotateX: 5,
-          rotateY: 5,
-          duration: 0.3,
-          ease: 'power2.out',
-          transformPerspective: 1000
-        })
+      try {
+        isHoveredRef.current = true
+        animateParticles()
+        if (enableTilt && typeof gsap !== 'undefined') {
+          gsap.to(element, {
+            rotateX: 5,
+            rotateY: 5,
+            duration: 0.3,
+            ease: 'power2.out',
+            transformPerspective: 1000
+          })
+        }
+      } catch (error) {
+        console.error('Error in handleMouseEnter:', error)
       }
     }
     const handleMouseLeave = () => {
-      isHoveredRef.current = false
-      clearAllParticles()
-      if (enableTilt) {
-        gsap.to(element, {
-          rotateX: 0,
-          rotateY: 0,
-          duration: 0.3,
-          ease: 'power2.out'
-        })
-      }
-      if (enableMagnetism) {
-        gsap.to(element, {
-          x: 0,
-          y: 0,
-          duration: 0.3,
-          ease: 'power2.out'
-        })
+      try {
+        isHoveredRef.current = false
+        clearAllParticles()
+        if (enableTilt && typeof gsap !== 'undefined') {
+          gsap.to(element, {
+            rotateX: 0,
+            rotateY: 0,
+            duration: 0.3,
+            ease: 'power2.out'
+          })
+        }
+        if (enableMagnetism && typeof gsap !== 'undefined') {
+          gsap.to(element, {
+            x: 0,
+            y: 0,
+            duration: 0.3,
+            ease: 'power2.out'
+          })
+        }
+      } catch (error) {
+        console.error('Error in handleMouseLeave:', error)
       }
     }
     const handleMouseMove = e => {
-      if (!enableTilt && !enableMagnetism) return
-      const rect = element.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
-      const centerX = rect.width / 2
-      const centerY = rect.height / 2
-      if (enableTilt) {
-        const rotateX = ((y - centerY) / centerY) * -10
-        const rotateY = ((x - centerX) / centerX) * 10
-        gsap.to(element, {
-          rotateX,
-          rotateY,
-          duration: 0.1,
-          ease: 'power2.out',
-          transformPerspective: 1000
-        })
-      }
-      if (enableMagnetism) {
-        const magnetX = (x - centerX) * 0.05
-        const magnetY = (y - centerY) * 0.05
-        magnetismAnimationRef.current = gsap.to(element, {
-          x: magnetX,
-          y: magnetY,
-          duration: 0.3,
-          ease: 'power2.out'
-        })
+      try {
+        if (!enableTilt && !enableMagnetism) return
+        if (typeof gsap === 'undefined') return
+        const rect = element.getBoundingClientRect()
+        const x = e.clientX - rect.left
+        const y = e.clientY - rect.top
+        const centerX = rect.width / 2
+        const centerY = rect.height / 2
+        if (enableTilt) {
+          const rotateX = ((y - centerY) / centerY) * -10
+          const rotateY = ((x - centerX) / centerX) * 10
+          gsap.to(element, {
+            rotateX,
+            rotateY,
+            duration: 0.1,
+            ease: 'power2.out',
+            transformPerspective: 1000
+          })
+        }
+        if (enableMagnetism) {
+          const magnetX = (x - centerX) * 0.05
+          const magnetY = (y - centerY) * 0.05
+          magnetismAnimationRef.current = gsap.to(element, {
+            x: magnetX,
+            y: magnetY,
+            duration: 0.3,
+            ease: 'power2.out'
+          })
+        }
+      } catch (error) {
+        console.error('Error in handleMouseMove:', error)
       }
     }
     const handleClick = e => {
-      if (!clickEffect) return
-      const rect = element.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
-      const maxDistance = Math.max(
-        Math.hypot(x, y),
-        Math.hypot(x - rect.width, y),
-        Math.hypot(x, y - rect.height),
-        Math.hypot(x - rect.width, y - rect.height)
-      )
-      const ripple = document.createElement('div')
-      ripple.style.cssText = `
-        position: absolute;
-        width: ${maxDistance * 2}px;
-        height: ${maxDistance * 2}px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(${glowColor}, 0.4) 0%, rgba(${glowColor}, 0.2) 30%, transparent 70%);
-        left: ${x - maxDistance}px;
-        top: ${y - maxDistance}px;
-        pointer-events: none;
-        z-index: 1000;
-      `
-      element.appendChild(ripple)
-      gsap.fromTo(
-        ripple,
-        {
-          scale: 0,
-          opacity: 1
-        },
-        {
-          scale: 1,
-          opacity: 0,
-          duration: 0.8,
-          ease: 'power2.out',
-          onComplete: () => ripple.remove()
+      try {
+        if (!clickEffect) return
+        const rect = element.getBoundingClientRect()
+        const x = e.clientX - rect.left
+        const y = e.clientY - rect.top
+        const maxDistance = Math.max(
+          Math.hypot(x, y),
+          Math.hypot(x - rect.width, y),
+          Math.hypot(x, y - rect.height),
+          Math.hypot(x - rect.width, y - rect.height)
+        )
+        const ripple = document.createElement('div')
+        ripple.style.cssText = `
+          position: absolute;
+          width: ${maxDistance * 2}px;
+          height: ${maxDistance * 2}px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(${glowColor}, 0.4) 0%, rgba(${glowColor}, 0.2) 30%, transparent 70%);
+          left: ${x - maxDistance}px;
+          top: ${y - maxDistance}px;
+          pointer-events: none;
+          z-index: 1000;
+        `
+        element.appendChild(ripple)
+        if (typeof gsap !== 'undefined') {
+          gsap.fromTo(
+            ripple,
+            {
+              scale: 0,
+              opacity: 1
+            },
+            {
+              scale: 1,
+              opacity: 0,
+              duration: 0.8,
+              ease: 'power2.out',
+              onComplete: () => ripple.remove()
+            }
+          )
+        } else {
+          // Fallback animation if GSAP is not available
+          setTimeout(() => ripple.remove(), 800)
         }
-      )
+      } catch (error) {
+        console.error('Error in handleClick:', error)
+      }
     }
     element.addEventListener('mouseenter', handleMouseEnter)
     element.addEventListener('mouseleave', handleMouseLeave)

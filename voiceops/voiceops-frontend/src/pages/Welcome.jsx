@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import "../App.css";
 import ASCIIText from "../components/ASCIIText";
 import MagicBento from "../components/MagicBento";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 function Welcome({ onNavigateToApiUsage }) {
   const [isRecording, setIsRecording] = useState(false);
@@ -32,8 +33,27 @@ function Welcome({ onNavigateToApiUsage }) {
   useEffect(() => {
     return () => {
       clearInterval(timerRef.current);
-      if (mediaRecorderRef.current?.state !== "inactive") {
-        mediaRecorderRef.current.stop();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (error) {
+          console.error('Error stopping media recorder:', error);
+        }
+      }
+      if (streamRef.current) {
+        try {
+          const tracks = streamRef.current.getTracks();
+          if (tracks && tracks.length > 0) {
+            tracks.forEach((t) => {
+              if (t && typeof t.stop === 'function') {
+                t.stop();
+              }
+            });
+          }
+          streamRef.current = null;
+        } catch (error) {
+          console.error('Error stopping stream tracks:', error);
+        }
       }
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       if (uploadedFileUrl) URL.revokeObjectURL(uploadedFileUrl);
@@ -119,17 +139,31 @@ function Welcome({ onNavigateToApiUsage }) {
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
-        });
-        setAudioBlob(audioBlob);
-        const url = URL.createObjectURL(audioBlob);
-        setAudioUrl(url);
+        try {
+          const audioBlob = new Blob(audioChunksRef.current, {
+            type: "audio/webm",
+          });
+          setAudioBlob(audioBlob);
+          const url = URL.createObjectURL(audioBlob);
+          setAudioUrl(url);
 
-        stream.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-        mediaRecorderRef.current = null;
-        convertToWAV(audioBlob);
+          if (stream) {
+            try {
+              stream.getTracks().forEach((t) => {
+                if (t && typeof t.stop === 'function') {
+                  t.stop();
+                }
+              });
+            } catch (error) {
+              console.error('Error stopping stream tracks:', error);
+            }
+          }
+          streamRef.current = null;
+          mediaRecorderRef.current = null;
+          convertToWAV(audioBlob);
+        } catch (error) {
+          console.error('Error in mediaRecorder.onstop:', error);
+        }
       };
 
       mediaRecorder.start();
@@ -145,8 +179,13 @@ function Welcome({ onNavigateToApiUsage }) {
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current?.state !== "inactive")
-      mediaRecorderRef.current.stop();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (error) {
+        console.error('Error stopping recording:', error);
+      }
+    }
     clearInterval(timerRef.current);
   };
 
@@ -247,31 +286,35 @@ function Welcome({ onNavigateToApiUsage }) {
     <div className="welcome-container">
       <div className="welcome-content">
         <div className="welcome-title-wrapper">
-          <ASCIIText
-            text="VoiceOps"
-            enableWaves
-            asciiFontSize={8}
-            textFontSize={240}
-            textColor="#FF6B35"
-            planeBaseHeight={12}
-          />
+          <ErrorBoundary>
+            <ASCIIText
+              text="VoiceOps"
+              enableWaves
+              asciiFontSize={8}
+              textFontSize={240}
+              textColor="#FF6B35"
+              planeBaseHeight={12}
+            />
+          </ErrorBoundary>
         </div>
         <h2 className="welcome-subtitle">AI Operations Platform</h2>
 
         <div className="description-section">
-          <p>
+          <p className="description-intro">
             A unified AI operations platform offering centralized monitoring,
             alerting, and accessibility for all GenAI assets.
           </p>
           <div style={{ marginTop: "0.5rem", marginBottom: "1rem" }}>
-            <MagicBento
-              enableStars
-              enableSpotlight
-              enableBorderGlow
-              enableTilt
-              enableMagnetism
-              clickEffect
-            />
+            <ErrorBoundary>
+              <MagicBento
+                enableStars
+                enableSpotlight
+                enableBorderGlow
+                enableTilt
+                enableMagnetism
+                clickEffect
+              />
+            </ErrorBoundary>
           </div>
         </div>
 
