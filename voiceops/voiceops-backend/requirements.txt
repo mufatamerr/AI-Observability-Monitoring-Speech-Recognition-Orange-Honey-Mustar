@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+pydantic
+prometheus-client
+python-multipart
+
