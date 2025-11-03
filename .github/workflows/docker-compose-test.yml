@@ -1,0 +1,48 @@
+name: Docker Compose Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test-compose:
+    name: Test Docker Compose
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Compose
+        run: |
+          docker compose version
+
+      - name: Build services
+        run: |
+          docker compose build --no-cache
+
+      - name: Start services
+        run: |
+          docker compose up -d
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'test-key' }}
+
+      - name: Wait for services
+        run: |
+          timeout 60 bash -c 'until docker compose exec -T backend curl -f http://localhost:8000/health; do sleep 2; done'
+
+      - name: Check backend health
+        run: |
+          docker compose exec -T backend curl -f http://localhost:8000/health
+
+      - name: Check frontend
+        run: |
+          docker compose exec -T frontend wget --quiet --tries=1 --spider http://localhost/ || exit 1
+
+      - name: Stop services
+        if: always()
+        run: |
+          docker compose down -v
+
