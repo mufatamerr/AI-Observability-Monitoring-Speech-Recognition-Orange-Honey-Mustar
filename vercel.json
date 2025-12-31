@@ -1,0 +1,14 @@
+{
+  "buildCommand": "cd voiceops/voiceops-frontend && npm install && npm run build",
+  "outputDirectory": "voiceops/voiceops-frontend/dist",
+  "devCommand": "cd voiceops/voiceops-frontend && npm run dev",
+  "installCommand": "cd voiceops/voiceops-frontend && npm install",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+

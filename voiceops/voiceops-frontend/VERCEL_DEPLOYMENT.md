@@ -45,16 +45,25 @@ vercel
 
 #### Option B: Using GitHub Integration (Recommended)
 
-1. Push your code to GitHub
+1. Push your code to GitHub (make sure `vercel.json` is in the root directory)
 2. Go to https://vercel.com/new
 3. Import your GitHub repository
-4. Configure the project:
-   - **Framework Preset**: Vite
-   - **Root Directory**: `voiceops/voiceops-frontend`
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
+4. **IMPORTANT**: Configure the project settings:
+   - **Framework Preset**: Vite (or "Other" if Vite isn't available)
+   - **Root Directory**: `voiceops/voiceops-frontend` ⚠️ **CRITICAL - Set this!**
+   - **Build Command**: `npm run build` (or leave empty to use vercel.json)
+   - **Output Directory**: `dist` (or leave empty to use vercel.json)
 5. Add the `VITE_API_URL` environment variable in the project settings
 6. Click **Deploy**
+
+**If you already deployed and getting 404:**
+1. Go to your project in Vercel dashboard
+2. Click **Settings** → **General**
+3. Scroll to **Root Directory** section
+4. Set it to: `voiceops/voiceops-frontend`
+5. Click **Save**
+6. Go to **Deployments** tab
+7. Click the three dots on the latest deployment → **Redeploy**
 
 ### 4. Verify Deployment
 
