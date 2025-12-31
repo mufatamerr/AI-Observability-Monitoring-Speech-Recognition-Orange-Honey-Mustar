@@ -16,10 +16,11 @@ function ApiUsage({ onNavigateToWelcome }) {
   const fetchUsageData = async () => {
     try {
       setLoading(true)
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const [statsRes, endpointsRes, activityRes] = await Promise.all([
-        fetch('http://localhost:8000/api/v1/usage/stats'),
-        fetch('http://localhost:8000/api/v1/usage/endpoints'),
-        fetch('http://localhost:8000/api/v1/usage/activity')
+        fetch(`${API_URL}/api/v1/usage/stats`),
+        fetch(`${API_URL}/api/v1/usage/endpoints`),
+        fetch(`${API_URL}/api/v1/usage/activity`)
       ])
 
       if (statsRes.ok) {

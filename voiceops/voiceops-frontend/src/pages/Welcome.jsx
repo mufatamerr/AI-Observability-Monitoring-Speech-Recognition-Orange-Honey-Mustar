@@ -269,7 +269,9 @@ function Welcome({ onNavigateToApiUsage }) {
       const form = new FormData();
       form.append("file", audioBlob, filename);
 
-      const saveRes = await fetch("http://localhost:8000/api/v1/save-audio", {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      
+      const saveRes = await fetch(`${API_URL}/api/v1/save-audio`, {
         method: "POST",
         body: form,
       });
@@ -280,7 +282,7 @@ function Welcome({ onNavigateToApiUsage }) {
       }
 
       // Step 2: Run TranscribeWhisper.py script
-      const transcribeRes = await fetch("http://localhost:8000/api/v1/transcribe", {
+      const transcribeRes = await fetch(`${API_URL}/api/v1/transcribe`, {
         method: "POST",
       });
       
